@@ -1,7 +1,7 @@
 name: SERVICE_NAME
 author: SERVICE_AUTHOR
 source: SERVICE_SOURCE
-version: 1.0.1
+version: SERVICE_VERSION
 description: A template service in Go
 
 commands:
