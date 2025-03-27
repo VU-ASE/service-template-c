@@ -1,6 +1,7 @@
-#include "roverlib.h"
+#include <roverlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+
 
 long long current_time_millis() {
     struct timeval tv;
@@ -12,10 +13,15 @@ long long current_time_millis() {
 // The main user space program
 // this program has all you need from roverlib: service identity, reading, writing and configuration
 int user_program(Service service, Service_configuration *configuration) {
-    if (configuration == NULL) {
-        printf("Configuration is NULL\n");
-        return 1;
-    }
+  // Setting the buffer of stdout to NULL in order to print the logs in the webUI
+  setbuf(stdout, NULL);
+  //
+	// Get configuration values
+	//  
+  if (configuration == NULL) {
+    printf("Configuration cannot be accessed\n");
+    return 1;
+  }
 
 	//
 	// Access the service identity, who am I?
@@ -25,112 +31,100 @@ int user_program(Service service, Service_configuration *configuration) {
   //
 	// Access the service configuration, to use runtime parameters
 	//
-  double *example_num = get_float_value_safe(configuration, "number-example");
-  if (example_num == NULL) {
-    printf("Could not get number-example from configuration\n");
+  double *tunable_speed = get_float_value_safe(configuration, "speed");
+  if (tunable_speed == NULL) {
+    printf("Failed to get configuration\n");
     return 1;
   } 
-  printf("Got number-example from configuration: %f\n", *example_num);
-
-  char *example_str = get_string_value_safe(configuration, "string-example");
-  if (example_str == NULL) {
-    printf("Could not get string-example from configuration\n");
-    return 1;
-  }
-  printf("Got string-example from configuration: %s\n", example_str);
-
-  char *example_str_tunable = get_string_value_safe(configuration, "tunable-string-example");
-  if (example_str_tunable == NULL) {
-    printf("Could not get tunable-string-example from configuration\n");
-    return 1;
-  }
-  printf("Got tunable-string-example from configuration: %s\n", example_str_tunable);
-
-  //
-	// Writing to an output that other services can read (see service.yaml to understand the output name)
-	//
-  write_stream *w_stream = get_write_stream(&service, "example-output");
-  if (w_stream == NULL) {
-    printf("Could not get write stream for output example-output\n");
-  }
-
-  // Try to write a simple rovercom message, as if we are sending RPM data
-  // (see https://github.com/VU-ASE/rovercom/blob/main/definitions/outputs/wrapper.proto)
-  ProtobufMsgs__SensorOutput msg = PROTOBUF_MSGS__SENSOR_OUTPUT__INIT;
-  // Set the message fields
-  msg.sensorid = 505;                      // let the receiver know who we are! (if you have multiple sensors in one service)
-  msg.timestamp = current_time_millis();   // current time in milliseconds since epoch (useful for debugging)
-  msg.status = 0;                          // we are chilling
-  // Set the oneof field contents
-  ProtobufMsgs__RpmSensorOutput rpm_output = PROTOBUF_MSGS__RPM_SENSOR_OUTPUT__INIT;
-  rpm_output.leftrpm = 1000;
-  rpm_output.rightrpm = 2400;
-  // Set the oneof field (union)
-  msg.rpmouput = &rpm_output;
-  msg.sensor_output_case = PROTOBUF_MSGS__SENSOR_OUTPUT__SENSOR_OUTPUT_RPM_OUPUT;
-
-  int res = write_pb(w_stream, &msg);
-  if (res != 0) {
-    printf("Could not write to output example-output\n");
-    return 1l;
-  }
-
-	// You don't like using protobuf messages? No problem, you can write raw bytes too
-  char data[] = "Hello world!\0";
-  res = write_bytes(w_stream, data, sizeof(data));
-  if (res != 0) {
-    printf("Could not write to output example-output\n");
-    return 1;
-  }
+  printf("Fetched runtime configuration example tunable number: %f\n", *tunable_speed);
 
 	//
 	// Reading from an input, to get data from other services (see service.yaml to understand the input name)
 	//
-  read_stream *r_stream = get_read_stream(&service, "example-input", "rpm-data");
-  if (r_stream == NULL) {
-    printf("Could not get read stream for input example-input\n");
+  read_stream *read_stream = get_read_stream(&service, "imaging", "path");
+  if (read_stream == NULL) {
+    printf("Failed to get read stream\n");
   }
 
-	// Try to read a simple rovercom message, as if we are receiving RPM data
-  ProtobufMsgs__SensorOutput *rec_msg = read_pb(r_stream);
-  if (rec_msg == NULL) {
-    printf("Could not read from input example-input\n");
-  } else {
-		// Find out if we actually have rpm data
-    if (rec_msg->sensor_output_case == PROTOBUF_MSGS__SENSOR_OUTPUT__SENSOR_OUTPUT_RPM_OUPUT) {
-      printf("Received RPM data: left=%f, right=%f\n", rec_msg->rpmouput->leftrpm, rec_msg->rpmouput->rightrpm);
-    } else {
-      printf("Received data, but not RPM data\n");
-    }
+  //
+	// Writing to an output that other services can read (see service.yaml to understand the output name)
+	//
+  write_stream *write_stream = get_write_stream(&service, "decision");
+  if (write_stream == NULL) {
+    printf("Failed to create write stream 'decision'\n");
   }
 
-	//
-	// Now do something else fun, see if our "example-string-tunable" is updated
-	//
-  char *curr = strdup(example_str_tunable);
   while (true) {
-    printf("Checking for tunable string update");
+    // Read one message from the stream
+    ProtobufMsgs__SensorOutput *data = read_pb(read_stream);
+    if (data == NULL) {
+      printf("Failed to read from 'imaging' service\n");
+    }
+
+    // When did imaging service create this message?
+    int created_at = data->timestamp;
+    printf("Received message with timestamp: %d\n", created_at);
+
+    //Get the imaging data
+    ProtobufMsgs__CameraSensorOutput *imaging_data = data->cameraoutput;
+    if (imaging_data == NULL) {
+      printf("Message does not contain camera output. What did imaging do??");
+      return 1;
+    }
+    printf("Imaging service captured a %d by %d image\n", imaging_data->trajectory->width, imaging_data->trajectory->height);
+
+    // Print the X and Y coordinates of the middle point of the track that Imaging has detected
+		printf("The X: %d and Y: %d values of the middle point of the track\n", imaging_data->trajectory->points[0]->x, imaging_data->trajectory->points[0]->y);
+
+    // This value holds the steering position that we want to pass to the servo (-1 = left, 0 = center, 1 = right)
+    float steer_position = -0.5;
+
+    // Initialize the message that we want to send to the actuator
+    ProtobufMsgs__SensorOutput actuator_msg = PROTOBUF_MSGS__SENSOR_OUTPUT__INIT;
+    // Set the message fields
+    actuator_msg.timestamp = current_time_millis();   // milliseconds since epoch
+    actuator_msg.status = 0;                          // all is well
+    actuator_msg.sensorid = 1;
+    // Set the oneof field contents
+    ProtobufMsgs__ControllerOutput controller_output = PROTOBUF_MSGS__CONTROLLER_OUTPUT__INIT;
+    controller_output.steeringangle = steer_position;
+    controller_output.leftthrottle = *tunable_speed;
+    controller_output.rightthrottle = *tunable_speed;
+    controller_output.fanspeed = 0;
+    controller_output.frontlights = false;
+    // Set the oneof field (union)
+    actuator_msg.controlleroutput = &controller_output;
+    actuator_msg.sensor_output_case = PROTOBUF_MSGS__SENSOR_OUTPUT__SENSOR_OUTPUT_CONTROLLER_OUTPUT;
+
+    // Send the message to the actuator
+    int res = write_pb(write_stream, &actuator_msg);
+    if (res <= 0) {
+      printf("Could not write to actuator\n");
+      return 1;
+    }
+
+    //
+    // Now do something else fun, see if our "example-string-tunable" is updated
+    //
+    double *curr = tunable_speed;
+
+    printf("Checking for tunable number update\n");
 
     // We are not using the safe version here, because using locks is boring
-		// (this is perfectly fine if you are constantly polling the value)
-		// nb: this is not a blocking call, it will return the last known value
-    char *new_str = get_string_value(configuration, "tunable-string-example");
-    if (new_str == NULL) {
-      printf("Could not get tunable-string-example from configuration\n");
-      continue;
+    // (this is perfectly fine if you are constantly polling the value)
+    // nb: this is not a blocking call, it will return the last known value
+    double *new_val = get_float_value(configuration, "speed");
+    if (new_val == NULL) {
+      printf("Failed to get updated tunable number\n");
+      return 1;
     }
-
-    if (strcmp(curr, new_str) != 0) {
-      printf("Tunable string updated: %s -> %s\n", curr, new_str);
-      free(curr);
-      curr = strdup(new_str);
+    
+    if (curr != new_val) {
+      printf("Tunable number updated: %f -> %f\n", *curr, *new_val);
+      curr = new_val;
     }
-
-    // Don't waste CPU cycles
-    sleep(1);
+    tunable_speed = curr;
   }
-
-  return 0;
 }
 
 // This is just a wrapper to run the user program

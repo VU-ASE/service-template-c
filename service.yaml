@@ -2,27 +2,26 @@ name: SERVICE_NAME
 author: SERVICE_AUTHOR
 source: SERVICE_SOURCE
 version: SERVICE_VERSION
-description: A template service in Go
+description: A template service in C
+
+# The alias "as: controller" allows this service to be recognized as "controller"
+# by other components (like the actuator), even if its actual name is different.
+# This allows us to change the name of the service without breaking the system.
+as: controller
 
 commands:
   build: make build
-  run: ./bin/SERVICE_NAME
+  run: ./bin/controller
 
 inputs:
-  - service: example-input
+  - service: imaging
     streams:
-      - rpm-data
+      - path
 outputs:
-  - example-output
+  - decision
 
 configuration:
-  - name: number-example
+  - name: speed
     type: number
-    value: 30
-  - name: string-example
-    type: string
-    value: "hello all"
-  - name: tunable-string-example
-    type: string
-    value: "hello all, this is tunable"
+    value: 0.2
     tunable: true
