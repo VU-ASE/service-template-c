@@ -4,14 +4,16 @@
 BUILD_DIR=bin/
 BINARY_NAME=SERVICE_NAME
 
-lint:
-	@echo "Lint check..."
-	@echo "No linting configured"
+update:
+	git submodule update --init --recursive
+	git submodule update --recursive --remote
 
-build: lint
+build: update
 	@echo "building ${BINARY_NAME}"
 	@mkdir -p $(BUILD_DIR)
-	@gcc -I/usr/include/cjson -o $(BUILD_DIR)$(BINARY_NAME) src/*.c -lroverlib-c
+	gcc -o $(BUILD_DIR)$(BINARY_NAME) \
+	./src/*.c ./lib/src/*.c ./lib/src/rovercom/outputs/*.c ./lib/src/rovercom/tuning/*.c \
+	-lcjson -lzmq -lprotobuf-c -lhashtable -llist -I/usr/include/cjson -I./lib/include -g
 
 start: build
 	@echo "starting ${BINARY_NAME}"
@@ -21,6 +23,6 @@ clean:
 	@echo "Cleaning all targets for ${BINARY_NAME}"
 	rm -rf $(BUILD_DIR)
 
-test: lint
+test: 
 	@echo "No tests configured"
 
