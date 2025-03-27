@@ -73,8 +73,12 @@ int user_program(Service service, Service_configuration *configuration) {
     }
     printf("Imaging service captured a %d by %d image\n", imaging_data->trajectory->width, imaging_data->trajectory->height);
 
-    // Print the X and Y coordinates of the middle point of the track that Imaging has detected
-		printf("The X: %d and Y: %d values of the middle point of the track\n", imaging_data->trajectory->points[0]->x, imaging_data->trajectory->points[0]->y);
+    // First check if imaging detected any track edges, if it did trajectory->points will not be NULL
+    if (imaging_data->trajectory->points != NULL) {
+      // Print the X and Y coordinates of the middle point of the track that Imaging has detected
+      printf("The X: %d and Y: %d values of the middle point of the track\n", imaging_data->trajectory->points[0]->x, imaging_data->trajectory->points[0]->y);
+    }
+
 
     // This value holds the steering position that we want to pass to the servo (-1 = left, 0 = center, 1 = right)
     float steer_position = -0.5;
