@@ -1,24 +1,36 @@
 # Makefile in accordance with the docs on git management (to use in combination with meta)
-.PHONY: build start clean test check-lib
+.PHONY: build start clean test fetch-roverlib-c
 
 BUILD_DIR=bin/
 BINARY_NAME=SERVICE_NAME
 
+# If not using VSCode's devcontainers, with docker installed you can run this command to
+# build the service inside the container.
+build-docker:
+	docker build -t ase-service-c -f .devcontainer/Dockerfile .
+	docker run -it --cap-add=SYS_PTRACE \
+		--security-opt seccomp=unconfined \
+		--privileged \
+		--user=dev:dev \
+		-v "`pwd`":/workspaces/work \
+		-w /workspaces/work \
+		ase-service-c bash -ic 'make build -C /workspaces/work'
 
-check-lib:
+# This target clones roverlib-c so that it can be compiled along side the service
+fetch-roverlib-c:
 	@if [ ! -d "lib" ] || [ -z "$$(ls -A lib 2>/dev/null)" ]; then \
-		echo "lib directory doesn't exist or is empty. Cloning repository..."; \
-		git clone https://github.com/VU-ASE/service-template-c.git lib; \
+		echo "roverlib-c directory doesn't exist or is empty. Cloning into lib..."; \
+		git clone https://github.com/VU-ASE/roverlib-c.git lib; \
 	elif [ ! -d "lib/.git" ]; then \
-		echo "lib exists but is not a git repository. Removing and cloning..."; \
+		echo "directory lib exists but is not a git repository. Recloning..."; \
 		rm -rf lib; \
-		git clone https://github.com/VU-ASE/service-template-c.git lib; \
+		git clone https://github.com/VU-ASE/roverlib-c.git lib; \
 	else \
-		echo "lib directory exists and is a git repository."; \
+		echo "getting latest roverlib-c"; \
+		cd lib && git pull; \
 	fi
 
-
-build: update
+build: fetch-roverlib-c
 	@echo "building ${BINARY_NAME}"
 	@mkdir -p $(BUILD_DIR)
 	gcc -o $(BUILD_DIR)$(BINARY_NAME) \
@@ -35,4 +47,3 @@ clean:
 
 test: 
 	@echo "No tests configured"
-
