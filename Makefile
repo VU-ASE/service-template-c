@@ -1,12 +1,22 @@
 # Makefile in accordance with the docs on git management (to use in combination with meta)
-.PHONY: build start clean test
+.PHONY: build start clean test check-lib
 
 BUILD_DIR=bin/
 BINARY_NAME=SERVICE_NAME
 
-update:
-	git submodule update --init --recursive
-	git submodule update --recursive --remote
+
+check-lib:
+	@if [ ! -d "lib" ] || [ -z "$$(ls -A lib 2>/dev/null)" ]; then \
+		echo "lib directory doesn't exist or is empty. Cloning repository..."; \
+		git clone https://github.com/VU-ASE/service-template-c.git lib; \
+	elif [ ! -d "lib/.git" ]; then \
+		echo "lib exists but is not a git repository. Removing and cloning..."; \
+		rm -rf lib; \
+		git clone https://github.com/VU-ASE/service-template-c.git lib; \
+	else \
+		echo "lib directory exists and is a git repository."; \
+	fi
+
 
 build: update
 	@echo "building ${BINARY_NAME}"
