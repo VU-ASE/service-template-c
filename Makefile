@@ -41,7 +41,7 @@ start: build
 	@echo "starting ${BINARY_NAME}"
 	# Add /usr/local/lib as a possible location for shared libraries, fix for when
 	# working in a devcontainer
-	@LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH ./bin/testing-terminate
+	@LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH ./bin/SERVICE_NAME
 
 clean:
 	@echo "Cleaning all targets for ${BINARY_NAME}"
