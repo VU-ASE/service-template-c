@@ -76,16 +76,17 @@ int user_program(Service service, Service_configuration *configuration) {
       return 1;
     }
     printf("Imaging service captured a %d by %d image\n",
-           imaging_data->trajectory->width, imaging_data->trajectory->height);
+           imaging_data->resolution->width, imaging_data->resolution->height);
 
     // First check if imaging detected any track edges, if it did
-    // trajectory->points will not be NULL
-    if (imaging_data->trajectory->points != NULL) {
+    // horizontal_scans will not be NULL
+    if (imaging_data->horizontalscans != NULL && imaging_data->n_horizontalscans > 0) {
       // Print the X and Y coordinates of the middle point of the track that
       // Imaging has detected
-      printf("The X: %d and Y: %d values of the middle point of the track\n",
-             imaging_data->trajectory->points[0]->x,
-             imaging_data->trajectory->points[0]->y);
+      printf("The imaging service detected the left track edge at X: %d, and the right track edge at X: %d. Both at Y: %d\n",
+             imaging_data->horizontalscans[0]->xleft,
+              imaging_data->horizontalscans[0]->xright,
+              imaging_data->horizontalscans[0]->y);
     }
 
     // This value holds the steering position that we want to pass to the servo
@@ -144,16 +145,17 @@ int user_program(Service service, Service_configuration *configuration) {
 }
 
 int on_terminate(int signum) {
-  // This function is called when the service is terminated
-  // You can do any cleanup here, like closing files, sockets, etc.
   printf("Service terminated with signal %d, gracefully shutting down\n", signum);
   fflush(stdout); // Ensure all output is printed before exit
-  return 0; // Return 0 to indicate successful termination
+
+  //
+  // Clean up resources here, if needed
+  //
+
+  return 0;
 }
 
 // This is just a wrapper to run the user program
 // it is not recommended to put any other logic here
+int main() { return run(user_program, on_terminate); }
 
-int main() {
-  return run(user_program, on_terminate);
-}
