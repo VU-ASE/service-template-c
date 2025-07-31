@@ -27,7 +27,7 @@ fetch-roverlib-c:
 		git clone https://github.com/VU-ASE/roverlib-c.git lib; \
 	else \
 		echo "getting latest roverlib-c"; \
-		cd lib && git pull; \
+		cd lib ; git restore . ; git pull; \
 	fi
 
 build: fetch-roverlib-c
